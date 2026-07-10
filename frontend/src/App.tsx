@@ -1254,7 +1254,7 @@ export default function App() {
 
               <div className="flex-between mb-lg">
                 <div>
-                  <h1>LinkedIn Autopilot Overview</h1>
+                  <h1>Sandy Autopilot Overview</h1>
                   <p>Real-time telemetry monitoring, strategy matrix states, and active queue health.</p>
                 </div>
                 <div className="flex-center gap-sm">
