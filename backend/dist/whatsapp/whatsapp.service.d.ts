@@ -16,6 +16,7 @@ export declare class WhatsappService implements OnModuleInit {
     onModuleInit(): void;
     private checkAndSendPendingDrafts;
     private sendTwilioSms;
+    private sendWhapiText;
     getSyncedContacts(): Promise<Contact[]>;
     private fetchContactsFromWhapi;
     triggerContactSync(phoneNumber: string): Promise<number>;

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, Link2, Calendar as CalendarIcon, 
-  Edit3, CheckSquare, Layers, Bot, Sliders, Database, 
-  TrendingUp, Users, Bell, CreditCard, User, Folder, 
+  LayoutDashboard, Link2, 
+  Edit3, CheckSquare, Bot, Sliders, Database, 
+  TrendingUp, Users, User, 
   LogOut, Sun, Moon, Plus, Trash2, Play, Check, 
   X, Send, Smartphone, Sparkles, 
   RefreshCw, ChevronRight, ChevronLeft, 
@@ -128,7 +128,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState<string>('landing'); // landing, login, register, dashboard, categories, queue, generator, editor, approval, whatsapp, calendar, linkedin, analytics, pricing, profile, admin, notifications, history, aisettings, team
   
   // App States
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [userRole, setUserRole] = useState<'super_admin' | 'content_manager' | 'end_user'>('end_user');
   const [isMfaEnabled, setIsMfaEnabled] = useState(false);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
@@ -171,7 +171,12 @@ export default function App() {
   const [regPassword, setRegPassword] = useState('');
   const [regOrgName, setRegOrgName] = useState('');
   const [regPhoneInput, setRegPhoneInput] = useState('');
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>({
+    fullName: 'Sandy Sharma',
+    email: 'sandeep.s@cisinlabs.com',
+    timezone: 'India',
+    role: 'super_admin'
+  });
   const [loginMethod, setLoginMethod] = useState<'email' | 'otp'>('email');
 
   // Notification settings
@@ -243,7 +248,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/register', {
+      const response = await fetch('http://localhost:3000/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -275,7 +280,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/login', {
+      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -288,7 +293,6 @@ export default function App() {
         localStorage.setItem('auth_token', data.accessToken);
         setCurrentUser(data.user);
         setUserRole(data.user.role);
-        alert(`Welcome back, ${data.user.fullName}!`);
         navigateTo('dashboard');
       } else {
         alert(data.message || 'Invalid email or password.');
@@ -300,7 +304,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/logout', { method: 'POST' });
+      await fetch('http://localhost:3000/api/v1/auth/logout', { method: 'POST' });
     } catch (e) {
       console.log('Backend offline.');
     }
@@ -318,14 +322,13 @@ export default function App() {
     }
     setDebugOtp(null);
     try {
-      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/otp/send', {
+      const response = await fetch('http://localhost:3000/api/v1/auth/otp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: phoneInput })
       });
       const data = await response.json();
       if (response.ok) {
-        alert(data.message || 'OTP Code sent successfully!');
         if (data.debugOtpCode) {
           setDebugOtp(data.debugOtpCode);
         }
@@ -337,18 +340,19 @@ export default function App() {
     }
   };
 
-  const handleVerifyOtp = async () => {
-    if (!phoneInput || !otpInput) {
+  const handleVerifyOtp = async (codeOverride?: string) => {
+    const activeCode = codeOverride || otpInput;
+    if (!phoneInput || !activeCode) {
       alert('Please enter both your phone number and the OTP code received.');
       return;
     }
     try {
-      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/otp/verify', {
+      const response = await fetch('http://localhost:3000/api/v1/auth/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: phoneInput,
-          code: otpInput
+          code: activeCode
         })
       });
       const data = await response.json();
@@ -357,7 +361,6 @@ export default function App() {
         setCurrentUser(data.user);
         setUserRole(data.user.role);
         setDebugOtp(null);
-        alert(`Welcome back, ${data.user.fullName}!`);
         navigateTo('dashboard');
       } else {
         alert(data.message || 'Invalid or expired OTP code.');
@@ -371,7 +374,7 @@ export default function App() {
     setIsSyncingContacts(true);
     setSelectedContactPhones([]);
     try {
-      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/contacts/sync', {
+      const response = await fetch('http://localhost:3000/api/v1/whatsapp/contacts/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: '+91 9893854811' })
@@ -380,7 +383,7 @@ export default function App() {
         throw new Error('Backend HTTP request failed.');
       }
 
-      const contactsRes = await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/contacts');
+      const contactsRes = await fetch('http://localhost:3000/api/v1/whatsapp/contacts');
       const contactsList = await contactsRes.json();
       
       if (contactsList && contactsList.length > 0) {
@@ -391,7 +394,6 @@ export default function App() {
         setSyncedContacts(list);
         setSelectedContactPhones(list.map((c: any) => c.phoneNumber));
         setIsSyncingContacts(false);
-        alert(`Successfully fetched ${contactsList.length} live contacts from +91 9893854811!`);
         return;
       }
     } catch (e) {
@@ -410,7 +412,6 @@ export default function App() {
       setSyncedContacts(mockList);
       setSelectedContactPhones(mockList.map(c => c.phoneNumber));
       setIsSyncingContacts(false);
-      alert('Synced 5 contacts associated with +91 9893854811 successfully! (Sandbox Simulator)');
     }, 2000);
   };
 
@@ -444,7 +445,7 @@ export default function App() {
     setBroadcastLogs([]);
 
     try {
-      await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/broadcast', {
+      await fetch('http://localhost:3000/api/v1/whatsapp/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -464,7 +465,6 @@ export default function App() {
         clearInterval(interval);
         setIsBroadcasting(false);
         setBroadcastMessage('');
-        alert(`One-shot broadcast sent to ${total} selected contacts successfully!`);
         return;
       }
 
@@ -502,7 +502,7 @@ export default function App() {
     // Attempt to dispatch request to real NestJS backend webhook
     const userPhone = phoneInput || '+919893854811';
     try {
-      const res = await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/webhooks/whatsapp', {
+      const res = await fetch('http://localhost:3000/api/v1/whatsapp/webhooks/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -796,11 +796,6 @@ export default function App() {
               <span>Monitoring Panel</span>
             </a>
             
-            <a className={`sidebar-item ${currentView === 'generator' ? 'active' : ''}`} onClick={() => navigateTo('generator')}>
-              <Bot size={18} />
-              <span>AI Content Engine</span>
-            </a>
-
             <a className={`sidebar-item ${currentView === 'queue' ? 'active' : ''}`} onClick={() => navigateTo('queue')}>
               <CheckSquare size={18} />
               <span>Content Queue</span>
@@ -809,11 +804,6 @@ export default function App() {
             <a className={`sidebar-item ${currentView === 'editor' ? 'active' : ''}`} onClick={() => navigateTo('editor')}>
               <Edit3 size={18} />
               <span>Content Editor</span>
-            </a>
-
-            <a className={`sidebar-item ${currentView === 'calendar' ? 'active' : ''}`} onClick={() => navigateTo('calendar')}>
-              <CalendarIcon size={18} />
-              <span>Content Calendar</span>
             </a>
 
             <div className="sidebar-section-title">Integrations</div>
@@ -828,21 +818,11 @@ export default function App() {
               <span>WhatsApp Integration</span>
             </a>
 
-            <div className="sidebar-section-title">Analytics & Billing</div>
+            <div className="sidebar-section-title">Analytics</div>
 
             <a className={`sidebar-item ${currentView === 'analytics' ? 'active' : ''}`} onClick={() => navigateTo('analytics')}>
               <TrendingUp size={18} />
               <span>Analytics & Metrics</span>
-            </a>
-
-            <a className={`sidebar-item ${currentView === 'pricing' ? 'active' : ''}`} onClick={() => navigateTo('pricing')}>
-              <CreditCard size={18} />
-              <span>Plans & Pricing</span>
-            </a>
-
-            <a className={`sidebar-item ${currentView === 'categories' ? 'active' : ''}`} onClick={() => navigateTo('categories')}>
-              <Layers size={18} />
-              <span>Categories</span>
             </a>
 
             <div className="sidebar-section-title">Settings</div>
@@ -862,15 +842,7 @@ export default function App() {
               <span>AI Configuration</span>
             </a>
 
-            <a className={`sidebar-item ${currentView === 'notifications' ? 'active' : ''}`} onClick={() => navigateTo('notifications')}>
-              <Bell size={18} />
-              <span>Notifications Center</span>
-            </a>
 
-            <a className={`sidebar-item ${currentView === 'history' ? 'active' : ''}`} onClick={() => navigateTo('history')}>
-              <Folder size={18} />
-              <span>Publishing History</span>
-            </a>
 
             {userRole === 'super_admin' && (
               <a className={`sidebar-item ${currentView === 'admin' ? 'active' : ''}`} onClick={() => navigateTo('admin')}>
@@ -934,7 +906,23 @@ export default function App() {
                 <Sparkles size={12} />
                 <span>Credits: 84 / 100</span>
               </div>
-              <div className="avatar-placeholder" style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--brand-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.85rem' }}>
+              <div 
+                className="avatar-placeholder" 
+                onClick={() => navigateTo('profile')}
+                style={{ 
+                  width: 36, 
+                  height: 36, 
+                  borderRadius: '50%', 
+                  backgroundColor: 'var(--brand-accent)', 
+                  color: '#fff', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontWeight: 'bold', 
+                  fontSize: '0.85rem',
+                  cursor: 'pointer' 
+                }}
+              >
                 {currentUser ? currentUser.fullName.split(' ').map((n: string) => n[0]).join('').slice(0,2).toUpperCase() : 'JD'}
               </div>
             </div>
@@ -1071,7 +1059,7 @@ export default function App() {
                             e.preventDefault();
                             if (!emailInput) { alert('Please enter your email first.'); return; }
                             try {
-                              const res = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/reset-password', {
+                              const res = await fetch('http://localhost:3000/api/v1/auth/reset-password', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ email: emailInput })
@@ -1135,15 +1123,18 @@ export default function App() {
                               <button 
                                 className="btn btn-secondary btn-sm"
                                 style={{ padding: '2px 6px', fontSize: '0.7rem' }}
-                                onClick={() => setOtpInput(debugOtp)}
+                                onClick={() => {
+                                  setOtpInput(debugOtp);
+                                  handleVerifyOtp(debugOtp);
+                                }}
                               >
-                                Auto-Fill
+                                Auto-Fill & Login
                               </button>
                             </div>
                           )}
                         </div>
                         
-                        <button className="btn btn-accent" style={{ width: '100%', padding: '0.75rem' }} onClick={handleVerifyOtp}>
+                        <button className="btn btn-accent" style={{ width: '100%', padding: '0.75rem' }} onClick={() => handleVerifyOtp()}>
                           Verify OTP & Authorize
                         </button>
                       </div>
@@ -1268,7 +1259,7 @@ export default function App() {
                 </div>
                 <div className="flex-center gap-sm">
                   <a 
-                    href="https://newpublisher-94us.onrender.com/api/v1/auth/export-csv" 
+                    href="http://localhost:3000/api/v1/auth/export-csv" 
                     className="btn btn-secondary"
                     style={{ textDecoration: 'none' }}
                     target="_blank"
@@ -1277,7 +1268,7 @@ export default function App() {
                     📥 Export Users (Google Sheets)
                   </a>
                   <a 
-                    href="https://newpublisher-94us.onrender.com/api/v1/auth/database-download" 
+                    href="http://localhost:3000/api/v1/auth/database-download" 
                     className="btn btn-secondary"
                     style={{ textDecoration: 'none' }}
                     target="_blank"
@@ -2567,20 +2558,34 @@ export default function App() {
                   <h3 className="mb-md">Profile Details</h3>
                   <div className="form-group">
                     <label className="form-label">Full Name</label>
-                    <input type="text" className="form-input" defaultValue="Jane Developer" />
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={currentUser?.fullName || 'Sandy Sharma'} 
+                      onChange={(e) => setCurrentUser({ ...currentUser, fullName: e.target.value })} 
+                    />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Email Address</label>
-                    <input type="email" className="form-input" defaultValue="jane@company.com" readOnly />
+                    <input 
+                      type="email" 
+                      className="form-input" 
+                      value={currentUser?.email || 'sandeep.s@cisinlabs.com'} 
+                      readOnly 
+                    />
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Target Timezone</label>
-                    <select className="form-input" defaultValue="America/New_York">
+                    <select 
+                      className="form-input" 
+                      value={currentUser?.timezone || 'India'} 
+                      onChange={(e) => setCurrentUser({ ...currentUser, timezone: e.target.value })}
+                    >
+                      <option value="India">India (IST)</option>
                       <option value="America/New_York">EST (GMT-5)</option>
                       <option value="Europe/London">GMT (London)</option>
-                      <option value="Asia/Kolkata">IST (GMT+5:30)</option>
                       <option value="UTC">UTC</option>
                     </select>
                   </div>
@@ -2913,67 +2918,154 @@ export default function App() {
           WHATSAPP CHAT SIMULATOR WIDGET (With presets)
          ========================================== */}
       {currentView !== 'landing' && currentView !== 'login' && currentView !== 'register' && (
-        <div style={{ width: '320px', borderLeft: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', height: '100vh', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
-          <div style={{ padding: '1rem', backgroundColor: '#075e54', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#25d366' }}></div>
-            <div>
-              <strong style={{ fontSize: '0.85rem', display: 'block' }}>WhatsApp Sandbox</strong>
-              <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>Autopilot AI Chatbot</span>
+        <div style={{ 
+          width: '340px', 
+          borderLeft: '1px solid var(--border-color)', 
+          backgroundColor: '#efeae2', // Iconic WhatsApp chat background color (beige)
+          height: '100vh', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          position: 'sticky', 
+          top: 0,
+          fontFamily: 'Segoe UI, Helvetica Neue, Helvetica, Lucida Grande, Arial, Ubuntu, Cantarell, Fira Sans, sans-serif'
+        }}>
+          {/* Header styled exactly like WhatsApp Web */}
+          <div style={{ 
+            padding: '0.75rem 1rem', 
+            backgroundColor: '#008069', // Official WhatsApp Web Teal Green
+            color: '#ffffff', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ 
+                width: '38px', 
+                height: '38px', 
+                borderRadius: '50%', 
+                backgroundColor: '#ffffff', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                color: '#008069',
+                fontSize: '1rem',
+                border: '1px solid rgba(255,255,255,0.2)'
+              }}>
+                WA
+              </div>
+              <div>
+                <strong style={{ fontSize: '0.85rem', display: 'block', color: '#ffffff' }}>WhatsApp Sandbox</strong>
+                <span style={{ fontSize: '0.7rem', opacity: 0.9, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#25d366' }}></span>
+                  Online
+                </span>
+              </div>
             </div>
           </div>
 
-          <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--bg-primary)' }}>
+          {/* Messages list with tail-bubble layout */}
+          <div style={{ 
+            flex: 1, 
+            padding: '1rem', 
+            overflowY: 'auto', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.6rem',
+            backgroundImage: 'radial-gradient(var(--border-color) 0.5px, transparent 0.5px), radial-gradient(var(--border-color) 0.5px, #efeae2 0.5px)',
+            backgroundSize: '20px 20px',
+            backgroundPosition: '0 0, 10px 10px'
+          }}>
             {whatsappChat.map((msg, idx) => (
               <div 
                 key={idx} 
                 style={{ 
                   maxWidth: '85%', 
-                  padding: '0.75rem', 
-                  borderRadius: '8px', 
+                  padding: '0.5rem 0.75rem', 
+                  borderRadius: msg.sender === 'user' ? '8px 8px 0px 8px' : '8px 8px 8px 0px',
                   alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                  backgroundColor: msg.sender === 'user' ? '#dcf8c6' : 'var(--bg-secondary)',
-                  color: '#000',
-                  boxShadow: 'var(--shadow-sm)',
-                  fontSize: '0.8rem',
+                  backgroundColor: msg.sender === 'user' ? '#d9fdd3' : '#ffffff', // Official WhatsApp green vs white bubbles
+                  color: '#111b21', // WhatsApp text color
+                  boxShadow: '0 1px 0.5px rgba(11,20,26,.13)',
+                  fontSize: '0.825rem',
                   lineHeight: '1.4',
-                  whiteSpace: 'pre-wrap'
+                  whiteSpace: 'pre-wrap',
+                  position: 'relative'
                 }}
               >
                 {msg.text}
-                <span style={{ display: 'block', textAlign: 'right', fontSize: '0.65rem', color: '#666', marginTop: '0.25rem' }}>{msg.time}</span>
+                <span style={{ 
+                  display: 'block', 
+                  textAlign: 'right', 
+                  fontSize: '0.625rem', 
+                  color: '#667781', 
+                  marginTop: '0.25rem' 
+                }}>{msg.time}</span>
               </div>
             ))}
           </div>
 
-          {/* Quick command presets for sandbox testing */}
-          <div style={{ padding: '0.5rem', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.25rem', backgroundColor: 'var(--bg-tertiary)', borderTop: '1px solid var(--border-color)', fontSize: '0.75rem' }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('PAUSE')} style={{ padding: '4px' }}>⏸️ PAUSE</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('RESUME')} style={{ padding: '4px' }}>▶️ RESUME</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('GENERATE NEW')} style={{ padding: '4px' }}>✨ GENERATE NEW</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('SHOW ANALYTICS')} style={{ padding: '4px' }}>📈 ANALYTICS</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('POST NOW')} style={{ padding: '4px', gridColumn: 'span 2' }}>🚀 POST NOW</button>
-            <button className="btn btn-primary btn-sm" onClick={() => handleSendWhatsappMessage('AUTOPILOT RUN')} style={{ padding: '4px', gridColumn: 'span 2', backgroundColor: 'var(--brand-accent)', borderColor: 'var(--brand-accent)' }}>🤖 RUN AUTOPILOT</button>
+          {/* Preset Buttons Container */}
+          <div style={{ padding: '0.5rem', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.35rem', backgroundColor: '#f0f2f5', borderTop: '1px solid var(--border-color)' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('PAUSE')} style={{ padding: '5px', fontSize: '0.75rem', border: '1px solid #e9edef', backgroundColor: '#ffffff', color: '#54656f' }}>⏸️ PAUSE</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('RESUME')} style={{ padding: '5px', fontSize: '0.75rem', border: '1px solid #e9edef', backgroundColor: '#ffffff', color: '#54656f' }}>▶️ RESUME</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('GENERATE NEW')} style={{ padding: '5px', fontSize: '0.75rem', border: '1px solid #e9edef', backgroundColor: '#ffffff', color: '#54656f' }}>✨ GENERATE NEW</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('SHOW ANALYTICS')} style={{ padding: '5px', fontSize: '0.75rem', border: '1px solid #e9edef', backgroundColor: '#ffffff', color: '#54656f' }}>📈 ANALYTICS</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('POST NOW')} style={{ padding: '5px', fontSize: '0.75rem', gridColumn: 'span 2', border: '1px solid #e9edef', backgroundColor: '#ffffff', color: '#54656f' }}>🚀 POST NOW</button>
+            <button className="btn btn-primary btn-sm" onClick={() => handleSendWhatsappMessage('AUTOPILOT RUN')} style={{ padding: '5px', fontSize: '0.75rem', gridColumn: 'span 2', backgroundColor: '#00a884', borderColor: '#00a884', color: '#ffffff' }}>🤖 RUN AUTOPILOT</button>
           </div>
 
-          {/* Traditional reply options */}
-          <div style={{ padding: '0.5rem', display: 'flex', gap: '0.25rem', backgroundColor: 'var(--bg-tertiary)', borderTop: '1px solid var(--border-color)' }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('1')} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', flex: 1 }}>1 (Approve)</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('3')} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', flex: 1 }}>3 (Reject)</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('4')} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', flex: 1 }}>4 (Regen)</button>
+          {/* Verification presets */}
+          <div style={{ padding: '0.35rem 0.5rem', display: 'flex', gap: '0.35rem', backgroundColor: '#f0f2f5', borderTop: '1px solid var(--border-color)' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('1')} style={{ fontSize: '0.75rem', padding: '0.25rem', flex: 1, backgroundColor: '#ffffff', border: '1px solid #e9edef', color: '#54656f' }}>1 (Approve)</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('3')} style={{ fontSize: '0.75rem', padding: '0.25rem', flex: 1, backgroundColor: '#ffffff', border: '1px solid #e9edef', color: '#54656f' }}>3 (Reject)</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('4')} style={{ fontSize: '0.75rem', padding: '0.25rem', flex: 1, backgroundColor: '#ffffff', border: '1px solid #e9edef', color: '#54656f' }}>4 (Regen)</button>
           </div>
 
-          <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '0.5rem' }}>
+          {/* Message Input container styled exactly like WhatsApp Web */}
+          <div style={{ 
+            padding: '0.5rem 0.75rem', 
+            backgroundColor: '#f0f2f5', // WhatsApp Web input footer gray
+            borderTop: '1px solid var(--border-color)', 
+            display: 'flex', 
+            alignItems: 'center',
+            gap: '0.5rem' 
+          }}>
             <input 
               type="text" 
               className="form-input" 
-              placeholder="Type command..." 
+              placeholder="Type a message" 
               value={whatsappInput}
               onChange={(e) => setWhatsappInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSendWhatsappMessage()}
-              style={{ fontSize: '0.8rem', padding: '0.5rem' }}
+              style={{ 
+                fontSize: '0.85rem', 
+                padding: '0.45rem 0.75rem', 
+                backgroundColor: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                flex: 1,
+                boxShadow: '0 1px 1px rgba(0,0,0,0.05)'
+              }}
             />
-            <button className="btn btn-primary" onClick={() => handleSendWhatsappMessage()} style={{ padding: '0.5rem' }}>
-              <Send size={14} />
+            <button 
+              onClick={() => handleSendWhatsappMessage()} 
+              style={{ 
+                width: '36px', 
+                height: '36px', 
+                borderRadius: '50%', 
+                backgroundColor: '#00a884', // WhatsApp send button green
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                cursor: 'pointer',
+                boxShadow: '0 1px 1px rgba(0,0,0,0.1)'
+              }}
+            >
+              <Send size={15} />
             </button>
           </div>
         </div>

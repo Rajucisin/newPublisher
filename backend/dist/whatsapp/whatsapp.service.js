@@ -63,7 +63,13 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
                     `*3* = Reject Draft`;
                 this.logger.log(`Auto-dispatching review alert to ${cleanPhone} for post queue: ${item.queue_id}`);
                 try {
-                    await this.sendTwilioSms(cleanPhone, messageBody);
+                    const whapiToken = process.env.WHAPI_API_TOKEN;
+                    if (whapiToken && whapiToken !== 'your_whapi_api_token_here' && whapiToken.trim() !== '') {
+                        await this.sendWhapiText(cleanPhone, messageBody);
+                    }
+                    else {
+                        await this.sendTwilioSms(cleanPhone, messageBody);
+                    }
                     this.db.run('UPDATE publishing_queue SET whatsapp_notification_sent = 1 WHERE id = ?;', [item.queue_id]);
                 }
                 catch (sendErr) {
@@ -114,6 +120,55 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
             req.on('error', (e) => {
                 reject(e);
             });
+            req.write(postData);
+            req.end();
+        });
+    }
+    sendWhapiText(to, message) {
+        return new Promise((resolve, reject) => {
+            const token = process.env.WHAPI_API_TOKEN;
+            const apiUrl = process.env.WHAPI_API_URL || 'https://gate.whapi.cloud/';
+            if (!token || token === 'your_whapi_api_token_here' || token.trim() === '') {
+                return resolve(null);
+            }
+            let cleanTo = to.replace(/\s+/g, '');
+            if (cleanTo.startsWith('+')) {
+                cleanTo = cleanTo.substring(1);
+            }
+            const recipient = cleanTo.includes('@') ? cleanTo : `${cleanTo}@c.us`;
+            const postData = JSON.stringify({
+                to: recipient,
+                body: message
+            });
+            let host = 'gate.whapi.cloud';
+            try {
+                const urlParsed = new URL(apiUrl);
+                host = urlParsed.hostname;
+            }
+            catch (e) { }
+            const options = {
+                hostname: host,
+                path: '/messages/text',
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(postData)
+                }
+            };
+            const req = https.request(options, (res) => {
+                let responseBody = '';
+                res.on('data', (chunk) => { responseBody += chunk; });
+                res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve(JSON.parse(responseBody));
+                    }
+                    else {
+                        reject(new Error(`Whapi API status ${res.statusCode}: ${responseBody}`));
+                    }
+                });
+            });
+            req.on('error', (e) => reject(e));
             req.write(postData);
             req.end();
         });
@@ -204,6 +259,12 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
         for (const contact of contactsToMessage) {
             this.logger.log(`Dispatching message to ${contact.name} (${contact.phoneNumber}): "${message}"`);
             if (token && token !== 'your_whapi_api_token_here' && token.trim() !== '') {
+                try {
+                    await this.sendWhapiText(contact.phoneNumber, message);
+                }
+                catch (err) {
+                    this.logger.error(`Failed to dispatch message to ${contact.name} (${contact.phoneNumber}): ${err.message}`);
+                }
             }
         }
         return {
