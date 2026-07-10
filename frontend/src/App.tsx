@@ -248,7 +248,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/register', {
+      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -280,7 +280,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -304,7 +304,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/v1/auth/logout', { method: 'POST' });
+      await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/logout', { method: 'POST' });
     } catch (e) {
       console.log('Backend offline.');
     }
@@ -322,7 +322,7 @@ export default function App() {
     }
     setDebugOtp(null);
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/otp/send', {
+      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/otp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: phoneInput })
@@ -347,7 +347,7 @@ export default function App() {
       return;
     }
     try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/otp/verify', {
+      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -374,7 +374,7 @@ export default function App() {
     setIsSyncingContacts(true);
     setSelectedContactPhones([]);
     try {
-      const response = await fetch('http://localhost:3000/api/v1/whatsapp/contacts/sync', {
+      const response = await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/contacts/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: '+91 9893854811' })
@@ -383,7 +383,7 @@ export default function App() {
         throw new Error('Backend HTTP request failed.');
       }
 
-      const contactsRes = await fetch('http://localhost:3000/api/v1/whatsapp/contacts');
+      const contactsRes = await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/contacts');
       const contactsList = await contactsRes.json();
       
       if (contactsList && contactsList.length > 0) {
@@ -445,7 +445,7 @@ export default function App() {
     setBroadcastLogs([]);
 
     try {
-      await fetch('http://localhost:3000/api/v1/whatsapp/broadcast', {
+      await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -502,7 +502,7 @@ export default function App() {
     // Attempt to dispatch request to real NestJS backend webhook
     const userPhone = phoneInput || '+919893854811';
     try {
-      const res = await fetch('http://localhost:3000/api/v1/whatsapp/webhooks/whatsapp', {
+      const res = await fetch('https://newpublisher-94us.onrender.com/api/v1/whatsapp/webhooks/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1059,7 +1059,7 @@ export default function App() {
                             e.preventDefault();
                             if (!emailInput) { alert('Please enter your email first.'); return; }
                             try {
-                              const res = await fetch('http://localhost:3000/api/v1/auth/reset-password', {
+                              const res = await fetch('https://newpublisher-94us.onrender.com/api/v1/auth/reset-password', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ email: emailInput })
@@ -1259,7 +1259,7 @@ export default function App() {
                 </div>
                 <div className="flex-center gap-sm">
                   <a 
-                    href="http://localhost:3000/api/v1/auth/export-csv" 
+                    href="https://newpublisher-94us.onrender.com/api/v1/auth/export-csv" 
                     className="btn btn-secondary"
                     style={{ textDecoration: 'none' }}
                     target="_blank"
@@ -1268,7 +1268,7 @@ export default function App() {
                     📥 Export Users (Google Sheets)
                   </a>
                   <a 
-                    href="http://localhost:3000/api/v1/auth/database-download" 
+                    href="https://newpublisher-94us.onrender.com/api/v1/auth/database-download" 
                     className="btn btn-secondary"
                     style={{ textDecoration: 'none' }}
                     target="_blank"
