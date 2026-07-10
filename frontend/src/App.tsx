@@ -965,7 +965,7 @@ export default function App() {
                   🤖 Fully Autonomous LinkedIn Employee
                 </span>
                 <h1 style={{ fontSize: '3.75rem', lineHeight: '1.15', fontWeight: 800, marginBottom: '1.5rem', fontFamily: 'var(--font-display)' }}>
-                  system. Zero writing or scheduling required.
+                  A completely hands-off system. Zero writing or scheduling required.
                 </h1>
                 <p style={{ fontSize: '1.25rem', marginBottom: '2.5rem', maxWidth: '650px', margin: '0 auto 2.5rem' }}>
                   Our AI researches daily topics, writes posts, forecasts reach, generates cards, and publishes directly. Spend less than 30 seconds per day reviewing drafts via simple WhatsApp clicks.
