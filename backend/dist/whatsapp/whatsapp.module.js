@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const queue_service_1 = require("../queue/queue.service");
 const whatsapp_controller_1 = require("./whatsapp.controller");
 const whatsapp_service_1 = require("./whatsapp.service");
+const linkedin_module_1 = require("../linkedin/linkedin.module");
 let WhatsappModule = class WhatsappModule {
 };
 exports.WhatsappModule = WhatsappModule;
 exports.WhatsappModule = WhatsappModule = __decorate([
     (0, common_1.Module)({
+        imports: [linkedin_module_1.LinkedinModule],
         controllers: [whatsapp_controller_1.WhatsappController],
         providers: [whatsapp_service_1.WhatsappService, queue_service_1.QueueService],
         exports: [whatsapp_service_1.WhatsappService],

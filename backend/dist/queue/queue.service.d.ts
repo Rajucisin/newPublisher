@@ -1,40 +1,33 @@
-export declare class QueueService {
-    private mockOrganizations;
-    private mockQueueItems;
-    findOrganizationByPhoneNumber(phone: string): Promise<{
-        id: string;
-        name: string;
-        phoneNumber: string;
-    }>;
-    getLatestPendingQueueItem(organizationId: string): Promise<{
-        id: string;
-        post_id: string;
-        organization_id: string;
-        title: string;
-        status: string;
-        rejectionFeedback: string;
-        scheduledTime: any;
-    }>;
-    getLatestRejectedQueueItem(organizationId: string): Promise<{
-        id: string;
-        post_id: string;
-        organization_id: string;
-        title: string;
-        status: string;
-        rejectionFeedback: string;
-        scheduledTime: any;
-    }>;
+import { OnModuleInit } from '@nestjs/common';
+import { LinkedinService } from '../linkedin/linkedin.service';
+export interface QueueItem {
+    id: string;
+    post_id: string;
+    user_id: string;
+    status: string;
+    whatsapp_notification_sent: number;
+    scheduledTime?: string;
+    publishedAt?: string;
+    rejectionFeedback?: string;
+    title: string;
+    linkedin_post_content: string;
+    createdAt: string;
+}
+export declare class QueueService implements OnModuleInit {
+    private readonly linkedinService;
+    private db;
+    private readonly dbPath;
+    constructor(linkedinService: LinkedinService);
+    onModuleInit(): void;
+    private verifySchema;
+    private processScheduledPublishing;
+    private sendTwilioSms;
+    findOrganizationByPhoneNumber(phone: string): Promise<any | null>;
+    getLatestPendingQueueItem(userId: string): Promise<QueueItem | null>;
+    getLatestRejectedQueueItem(userId: string): Promise<QueueItem | null>;
     updateQueueStatus(queueId: string, status: string, options?: {
         scheduledTime?: Date;
         rejectionFeedback?: string;
-    }): Promise<{
-        id: string;
-        post_id: string;
-        organization_id: string;
-        title: string;
-        status: string;
-        rejectionFeedback: string;
-        scheduledTime: any;
-    }>;
+    }): Promise<any>;
     appendRejectionFeedback(queueId: string, feedback: string): Promise<void>;
 }

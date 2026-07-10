@@ -161,6 +161,7 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [otpInput, setOtpInput] = useState('');
+  const [debugOtp, setDebugOtp] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [showMfaPrompt, setShowMfaPrompt] = useState(false);
 
@@ -193,6 +194,7 @@ export default function App() {
   // WhatsApp Broadcast States
   const [whatsappTab, setWhatsappTab] = useState<'settings' | 'broadcast'>('settings');
   const [syncedContacts, setSyncedContacts] = useState<{ name: string; phoneNumber: string }[]>([]);
+  const [selectedContactPhones, setSelectedContactPhones] = useState<string[]>([]);
   const [isSyncingContacts, setIsSyncingContacts] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -314,6 +316,7 @@ export default function App() {
       alert('Please enter your registered phone number first.');
       return;
     }
+    setDebugOtp(null);
     try {
       const response = await fetch('http://localhost:3000/api/v1/auth/otp/send', {
         method: 'POST',
@@ -323,6 +326,9 @@ export default function App() {
       const data = await response.json();
       if (response.ok) {
         alert(data.message || 'OTP Code sent successfully!');
+        if (data.debugOtpCode) {
+          setDebugOtp(data.debugOtpCode);
+        }
       } else {
         alert(data.message || 'Failed to send OTP.');
       }
@@ -350,6 +356,7 @@ export default function App() {
         localStorage.setItem('auth_token', data.accessToken);
         setCurrentUser(data.user);
         setUserRole(data.user.role);
+        setDebugOtp(null);
         alert(`Welcome back, ${data.user.fullName}!`);
         navigateTo('dashboard');
       } else {
@@ -362,6 +369,7 @@ export default function App() {
 
   const handleSyncContacts = async () => {
     setIsSyncingContacts(true);
+    setSelectedContactPhones([]);
     try {
       const response = await fetch('http://localhost:3000/api/v1/whatsapp/contacts/sync', {
         method: 'POST',
@@ -371,15 +379,17 @@ export default function App() {
       if (!response.ok) {
         throw new Error('Backend HTTP request failed.');
       }
-      
+
       const contactsRes = await fetch('http://localhost:3000/api/v1/whatsapp/contacts');
       const contactsList = await contactsRes.json();
       
       if (contactsList && contactsList.length > 0) {
-        setSyncedContacts(contactsList.map((c: any) => ({
+        const list = contactsList.map((c: any) => ({
           name: c.name,
           phoneNumber: c.phoneNumber
-        })));
+        }));
+        setSyncedContacts(list);
+        setSelectedContactPhones(list.map((c: any) => c.phoneNumber));
         setIsSyncingContacts(false);
         alert(`Successfully fetched ${contactsList.length} live contacts from +91 9893854811!`);
         return;
@@ -390,16 +400,32 @@ export default function App() {
 
     // Fallback Mock Data
     setTimeout(() => {
-      setSyncedContacts([
+      const mockList = [
         { name: 'Amit Sharma (Investor)', phoneNumber: '+91 98111 22233' },
         { name: 'Sarah Jenkins (Marketing)', phoneNumber: '+91 98777 88899' },
         { name: 'Rajesh Patel (Co-founder)', phoneNumber: '+91 90111 22233' },
         { name: 'Michael Scott (Client)', phoneNumber: '+1 (555) 123-4567' },
         { name: 'Elena Rostova (SaaS Advisor)', phoneNumber: '+44 77123 45678' }
-      ]);
+      ];
+      setSyncedContacts(mockList);
+      setSelectedContactPhones(mockList.map(c => c.phoneNumber));
       setIsSyncingContacts(false);
       alert('Synced 5 contacts associated with +91 9893854811 successfully! (Sandbox Simulator)');
     }, 2000);
+  };
+
+  const toggleSelectContact = (phone: string) => {
+    setSelectedContactPhones(prev => 
+      prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+    );
+  };
+
+  const toggleSelectAllContacts = () => {
+    if (selectedContactPhones.length === syncedContacts.length) {
+      setSelectedContactPhones([]);
+    } else {
+      setSelectedContactPhones(syncedContacts.map(c => c.phoneNumber));
+    }
   };
 
   const handleBroadcastOneShot = async () => {
@@ -407,8 +433,9 @@ export default function App() {
       alert('Please compose a message first.');
       return;
     }
-    if (syncedContacts.length === 0) {
-      alert('Please sync contacts first.');
+    const targetContacts = syncedContacts.filter(c => selectedContactPhones.includes(c.phoneNumber));
+    if (targetContacts.length === 0) {
+      alert('Please select/check at least one contact to broadcast.');
       return;
     }
 
@@ -420,13 +447,16 @@ export default function App() {
       await fetch('http://localhost:3000/api/v1/whatsapp/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: broadcastMessage })
+        body: JSON.stringify({ 
+          message: broadcastMessage,
+          targetPhones: selectedContactPhones
+        })
       });
     } catch (e) {
       console.log('Backend server is offline. Simulating broadcast logs locally.', e);
     }
 
-    const total = syncedContacts.length;
+    const total = targetContacts.length;
     let index = 0;
 
     const interval = setInterval(() => {
@@ -434,11 +464,11 @@ export default function App() {
         clearInterval(interval);
         setIsBroadcasting(false);
         setBroadcastMessage('');
-        alert('One-shot broadcast sent to all contacts successfully!');
+        alert(`One-shot broadcast sent to ${total} selected contacts successfully!`);
         return;
       }
 
-      const contact = syncedContacts[index];
+      const contact = targetContacts[index];
       setBroadcastLogs(prev => [...prev, `[${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}] Dispatching to ${contact.name} (${contact.phoneNumber})... SUCCESS`]);
       
       // Update simulator chat
@@ -457,21 +487,58 @@ export default function App() {
   };
 
   // Process WhatsApp reply command
-  const handleSendWhatsappMessage = (customText?: string) => {
+  const handleSendWhatsappMessage = async (customText?: string) => {
     const text = (customText || whatsappInput).trim();
     if (!text) return;
 
-    const newMsgs = [...whatsappChat, {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setWhatsappChat(prev => [...prev, {
       sender: 'user' as const,
       text: text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }];
-    setWhatsappChat(newMsgs);
+      time: timeStr
+    }]);
     setWhatsappInput('');
 
+    // Attempt to dispatch request to real NestJS backend webhook
+    const userPhone = phoneInput || '+919893854811';
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/whatsapp/webhooks/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          From: userPhone.startsWith('whatsapp:') ? userPhone : `whatsapp:${userPhone}`,
+          Body: text
+        })
+      });
+
+      if (res.ok) {
+        const twiml = await res.text();
+        const msgMatch = twiml.match(/<Message>([\s\S]+?)<\/Message>/);
+        const replyText = msgMatch ? msgMatch[1].trim() : 'Command processed successfully.';
+
+        // Append real bot response
+        setWhatsappChat(prev => [...prev, {
+          sender: 'bot' as const,
+          text: replyText,
+          time: timeStr
+        }]);
+
+        // Reflect state locally on dashboard UI if approved
+        if (text === '1' || text.toUpperCase() === 'APPROVE' || text.toUpperCase() === 'POST NOW') {
+          const pending = posts.find(p => p.status === 'pending_approval' || p.status === 'scheduled');
+          if (pending) {
+            setPosts(prev => prev.map(p => p.id === pending.id ? { ...p, status: 'published', publishedAt: 'Just Now' } : p));
+          }
+        }
+        return; // Success
+      }
+    } catch (e) {
+      console.log('Backend offline or error occurred. Running local sandbox mocks.');
+    }
+
+    // Local Sandbox Mock Fallback (if backend is offline)
     const command = text.toUpperCase().trim();
     const pending = posts.find(p => p.status === 'pending_approval');
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
     setTimeout(() => {
       // 1. Process Autonomous Autopilot Commands
@@ -1050,6 +1117,30 @@ export default function App() {
                             value={otpInput}
                             onChange={(e) => setOtpInput(e.target.value)}
                           />
+                          {debugOtp && (
+                            <div style={{ 
+                              marginTop: '0.75rem', 
+                              padding: '0.75rem', 
+                              backgroundColor: 'rgba(255, 193, 7, 0.1)', 
+                              border: '1px solid #ffc107', 
+                              borderRadius: 'var(--radius-sm)', 
+                              fontSize: '0.8rem', 
+                              color: 'var(--text-secondary)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              animation: 'pulse 2s infinite'
+                            }}>
+                              <span>🔑 <strong>Sent Code:</strong> {debugOtp}</span>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                                onClick={() => setOtpInput(debugOtp)}
+                              >
+                                Auto-Fill
+                              </button>
+                            </div>
+                          )}
                         </div>
                         
                         <button className="btn btn-accent" style={{ width: '100%', padding: '0.75rem' }} onClick={handleVerifyOtp}>
@@ -1391,7 +1482,9 @@ export default function App() {
                       {linkedinAccounts.map(acc => (
                         <div key={acc.id} className="flex-between" style={{ padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                           <div>
-                            <span style={{ fontSize: '0.875rem', fontWeight: 600, display: 'block' }}>{acc.name}</span>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 600, display: 'block' }}>
+                               {acc.id === 'acc-1' && currentUser ? `${currentUser.fullName} (Personal Profile)` : acc.name}
+                            </span>
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Type: {acc.type}</span>
                           </div>
                           <span className={`badge ${acc.connected ? 'badge-success' : 'badge-error'}`}>{acc.status}</span>
@@ -2075,6 +2168,13 @@ export default function App() {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                           <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-tertiary)' }}>
+                              <th style={{ padding: '0.5rem', width: '40px', textAlign: 'center' }}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedContactPhones.length === syncedContacts.length && syncedContacts.length > 0}
+                                  onChange={toggleSelectAllContacts}
+                                />
+                              </th>
                               <th style={{ padding: '0.5rem' }}>Contact Name</th>
                               <th style={{ padding: '0.5rem' }}>Phone Number</th>
                             </tr>
@@ -2082,6 +2182,13 @@ export default function App() {
                           <tbody>
                             {syncedContacts.map((c, i) => (
                               <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                                  <input 
+                                    type="checkbox" 
+                                    checked={selectedContactPhones.includes(c.phoneNumber)}
+                                    onChange={() => toggleSelectContact(c.phoneNumber)}
+                                  />
+                                </td>
                                 <td style={{ padding: '0.5rem', fontWeight: 500 }}>{c.name}</td>
                                 <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{c.phoneNumber}</td>
                               </tr>
@@ -2096,7 +2203,7 @@ export default function App() {
                   <div className="card">
                     <h3>One-Shot Bulk Broadcast</h3>
                     <p style={{ fontSize: '0.9rem', margin: '0.5rem 0 1rem' }}>
-                      Compose a marketing alert or published article link, and broadcast it to all {syncedContacts.length} synced contacts in one shot.
+                      Compose a marketing alert or published article link, and broadcast it to the {selectedContactPhones.length} checked contacts in one shot.
                     </p>
 
                     <div className="form-group">
@@ -2254,7 +2361,9 @@ export default function App() {
                     {linkedinAccounts.map(acc => (
                       <div key={acc.id} className="flex-between" style={{ padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                         <div>
-                          <strong>{acc.name}</strong>
+                          <strong>
+                            {acc.id === 'acc-1' && currentUser ? `${currentUser.fullName} (Personal Profile)` : acc.name}
+                          </strong>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Type: {acc.type}</div>
                         </div>
                         <div className="flex-center gap-sm">
@@ -2843,6 +2952,7 @@ export default function App() {
             <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('GENERATE NEW')} style={{ padding: '4px' }}>✨ GENERATE NEW</button>
             <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('SHOW ANALYTICS')} style={{ padding: '4px' }}>📈 ANALYTICS</button>
             <button className="btn btn-secondary btn-sm" onClick={() => handleSendWhatsappMessage('POST NOW')} style={{ padding: '4px', gridColumn: 'span 2' }}>🚀 POST NOW</button>
+            <button className="btn btn-primary btn-sm" onClick={() => handleSendWhatsappMessage('AUTOPILOT RUN')} style={{ padding: '4px', gridColumn: 'span 2', backgroundColor: 'var(--brand-accent)', borderColor: 'var(--brand-accent)' }}>🤖 RUN AUTOPILOT</button>
           </div>
 
           {/* Traditional reply options */}

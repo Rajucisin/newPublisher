@@ -3,10 +3,5 @@ export declare class LinkedinService {
     publishShare(accessToken: string, authorUrn: string, text: string, mediaUrl?: string): Promise<{
         shareUrn: string;
     }>;
-    getProfileDetails(accessToken: string): Promise<{
-        id: string;
-        localizedFirstName: string;
-        localizedLastName: string;
-        profilePicture: string;
-    }>;
+    getProfileDetails(accessToken: string): Promise<unknown>;
 }

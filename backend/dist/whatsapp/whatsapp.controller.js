@@ -58,7 +58,7 @@ let WhatsappController = class WhatsappController {
         };
     }
     async broadcast(body) {
-        const result = await this.whatsappService.sendBulkBroadcast(body.message);
+        const result = await this.whatsappService.sendBulkBroadcast(body.message, body.targetPhones);
         return {
             message: 'Broadcast dispatched successfully',
             details: result,

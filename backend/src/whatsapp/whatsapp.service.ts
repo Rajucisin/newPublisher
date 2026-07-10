@@ -1,6 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as https from 'https';
 import { QueueService } from '../queue/queue.service';
+import { LinkedinService } from '../linkedin/linkedin.service';
+import * as sqlite3 from 'sqlite3';
+import * as path from 'path';
 
 export interface Contact {
   name: string;
@@ -8,13 +11,131 @@ export interface Contact {
 }
 
 @Injectable()
-export class WhatsappService {
+export class WhatsappService implements OnModuleInit {
   private readonly logger = new Logger(WhatsappService.name);
+  private db: sqlite3.Database;
+  private readonly dbPath = path.resolve(process.cwd(), '../database.sqlite');
 
   // In-memory mock database of synced contacts
   private mockContacts: Contact[] = [];
 
-  constructor(private readonly queueService: QueueService) {}
+  constructor(
+    private readonly queueService: QueueService,
+    private readonly linkedinService: LinkedinService,
+  ) {}
+
+  onModuleInit() {
+    this.db = new sqlite3.Database(this.dbPath, (err) => {
+      if (err) {
+        this.logger.error(`Failed to connect to SQLite inside WhatsappService: ${err.message}`);
+      } else {
+        // Start periodic check for drafts every 15 seconds
+        setInterval(() => this.checkAndSendPendingDrafts(), 15000);
+      }
+    });
+  }
+
+  /**
+   * Periodically checks SQLite for drafts that have not been texted to the user's phone yet
+   */
+  private checkAndSendPendingDrafts() {
+    const query = `
+      SELECT q.id as queue_id, q.user_id, p.title, p.linkedin_post_content, u.phoneNumber
+      FROM publishing_queue q
+      JOIN blog_posts p ON q.post_id = p.id
+      JOIN users u ON q.user_id = u.id
+      WHERE q.status = 'pending_approval' AND q.whatsapp_notification_sent = 0;
+    `;
+
+    this.db.all(query, [], async (err, rows: any[]) => {
+      if (err) {
+        this.logger.error(`Error querying pending drafts: ${err.message}`);
+        return;
+      }
+
+      if (!rows || rows.length === 0) return;
+
+      for (const item of rows) {
+        if (!item.phoneNumber) continue;
+
+        const cleanPhone = item.phoneNumber.replace(/\s+/g, '');
+        const messageBody = `🔑 *Your LinkedIn Autopilot post is ready!* \n\n` +
+          `*Title*:\n${item.title}\n\n` +
+          `*Content Draft Preview*:\n${item.linkedin_post_content.slice(0, 300)}...\n\n` +
+          `*Reply options*:\n` +
+          `*1* = Approve & Publish Live\n` +
+          `*2* = Edit Draft Link\n` +
+          `*3* = Reject Draft`;
+
+        this.logger.log(`Auto-dispatching review alert to ${cleanPhone} for post queue: ${item.queue_id}`);
+
+        try {
+          await this.sendTwilioSms(cleanPhone, messageBody);
+          // Mark as notified in database
+          this.db.run('UPDATE publishing_queue SET whatsapp_notification_sent = 1 WHERE id = ?;', [item.queue_id]);
+        } catch (sendErr) {
+          this.logger.error(`Failed to dispatch review alert to ${cleanPhone}: ${sendErr.message}`);
+        }
+      }
+    });
+  }
+
+  /**
+   * Helper HTTPS POST request mapping to Twilio Messages API
+   */
+  private sendTwilioSms(to: string, body: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const sid = process.env.TWILIO_ACCOUNT_SID;
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      const from = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+
+      if (!sid || !token || sid.startsWith('your_') || token.startsWith('your_')) {
+        this.logger.log('[WhatsappService] Twilio credentials not configured. Message delivery bypassed.');
+        return resolve(null);
+      }
+
+      const cleanTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+      const cleanFrom = from.startsWith('whatsapp:') ? from : `whatsapp:${from}`;
+
+      const postData = new URLSearchParams({
+        To: cleanTo,
+        From: cleanFrom,
+        Body: body
+      }).toString();
+
+      const authHeaderValue = Buffer.from(`${sid}:${token}`).toString('base64');
+
+      const options = {
+        hostname: 'api.twilio.com',
+        path: `/2010-04-01/Accounts/${sid}/Messages.json`,
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${authHeaderValue}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      };
+
+      const req = https.request(options, (res) => {
+        let responseBody = '';
+        res.on('data', (chunk) => { responseBody += chunk; });
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(JSON.parse(responseBody));
+          } else {
+            reject(new Error(`Twilio API status ${res.statusCode}: ${responseBody}`));
+          }
+        });
+      });
+
+      req.on('error', (e) => {
+        reject(e);
+      });
+
+      req.write(postData);
+      req.end();
+    });
+  }
 
   /**
    * Returns the list of currently synced contacts
@@ -55,7 +176,6 @@ export class WhatsappService {
             }
             const json = JSON.parse(data);
             const parsedContacts: Contact[] = (json.contacts || []).map((c: any) => {
-              // Whapi returns contact IDs in standard format (e.g. "919893854811@c.us")
               const rawPhone = c.id.split('@')[0];
               return {
                 name: c.name || `User (+${rawPhone})`,
@@ -111,9 +231,13 @@ export class WhatsappService {
   /**
    * Broadcasts a bulk one-shot message to all synced contacts
    */
-  async sendBulkBroadcast(message: string): Promise<{ total: number; sent: number; failed: number }> {
+  async sendBulkBroadcast(message: string, targetPhones?: string[]): Promise<{ total: number; sent: number; failed: number }> {
     this.logger.log(`Initiating broadcast campaign: "${message}"`);
-    const count = this.mockContacts.length;
+    let contactsToMessage = this.mockContacts;
+    if (targetPhones && targetPhones.length > 0) {
+      contactsToMessage = this.mockContacts.filter(c => targetPhones.includes(c.phoneNumber));
+    }
+    const count = contactsToMessage.length;
     
     if (count === 0) {
       return { total: 0, sent: 0, failed: 0 };
@@ -122,7 +246,7 @@ export class WhatsappService {
     const token = process.env.WHAPI_API_TOKEN;
 
     // Simulate sending messages one by one
-    for (const contact of this.mockContacts) {
+    for (const contact of contactsToMessage) {
       this.logger.log(`Dispatching message to ${contact.name} (${contact.phoneNumber}): "${message}"`);
       
       if (token && token !== 'your_whapi_api_token_here' && token.trim() !== '') {
@@ -167,13 +291,55 @@ export class WhatsappService {
       return `✨ Triggered New Generation! Researching trending topics now...\n\nDraft Ready Preview:\nTitle: ${newPostTitle}\nReach Prediction: 4.8k impressions\n\nReply '1' or 'APPROVE' to schedule.`;
     }
 
+    if (command === 'AUTOPILOT RUN' || command === 'GENERATE AND PUBLISH') {
+      const title = 'Scaling Telemetry Architectures in Enterprise SaaS';
+      const postContent = `🚀 Autonomous queue processing and real-time telemetry pipelines represent the core of agentic SaaS systems. By automating code validation, teams reduce deployment latency from hours to seconds.\n\nLearn more: http://autopilot-ai.com/scaling-telemetry #SaaS #AI #Engineering`;
+      
+      const token = process.env.LINKEDIN_ACCESS_TOKEN;
+      const urn = process.env.LINKEDIN_MEMBER_URN;
+
+      let publishLog = '';
+      try {
+        const result = await this.linkedinService.publishShare(token, urn, postContent);
+        publishLog = `\n\nLive Link: https://linkedin.com/feed/update/${result.shareUrn}`;
+      } catch (err) {
+        publishLog = `\n\n(Error: ${err.message})`;
+      }
+
+      // Save to SQLite
+      const crypto = require('crypto');
+      const postId = crypto.randomUUID();
+      const queueId = crypto.randomUUID();
+      this.db.run('INSERT INTO blog_posts (id, user_id, title, linkedin_post_content) VALUES (?, ?, ?, ?);', [postId, organization.id, title, postContent]);
+      this.db.run('INSERT INTO publishing_queue (id, post_id, user_id, status, whatsapp_notification_sent) VALUES (?, ?, ?, ?, 1);', [queueId, postId, organization.id, 'published']);
+
+      return `🤖 *[Autopilot Automatic Cycle]*\n\n1. *AI Generation*: Draft generated successfully based on SaaS telemetry focus.\n2. *Publishing*: Dispatched directly to your LinkedIn feed without human review!${publishLog}`;
+    }
+
     if (command === 'POST NOW') {
       const latestApproved = await this.queueService.getLatestPendingQueueItem(organization.id);
       if (!latestApproved) {
         return 'There are no queued posts ready for immediate publication.';
       }
+      
+      const token = process.env.LINKEDIN_ACCESS_TOKEN;
+      const urn = process.env.LINKEDIN_MEMBER_URN;
+
+      let publishLog = '';
+      try {
+        const result = await this.linkedinService.publishShare(
+          token,
+          urn,
+          latestApproved.linkedin_post_content
+        );
+        publishLog = `\n\nLive Link: https://linkedin.com/feed/update/${result.shareUrn}`;
+      } catch (err) {
+        this.logger.error(`LinkedIn publish failed: ${err.message}`);
+        publishLog = `\n\n(Error: ${err.message})`;
+      }
+
       await this.queueService.updateQueueStatus(latestApproved.id, 'published');
-      return `🚀 Dispatched Instantly! "${latestApproved.title}" is now live on your connected LinkedIn profile.`;
+      return `🚀 Dispatched Instantly! "${latestApproved.title}" is now live on your connected LinkedIn profile.${publishLog}`;
     }
 
     if (command === 'SHOW ANALYTICS') {
@@ -208,10 +374,24 @@ export class WhatsappService {
     }
 
     if (command === '1' || command === 'APPROVE') {
-      await this.queueService.updateQueueStatus(pendingItem.id, 'scheduled', {
-        scheduledTime: new Date(Date.now() + 10 * 60000),
-      });
-      return `✅ Post Approved! "${pendingItem.title}" has been added to your LinkedIn queue.`;
+      const token = process.env.LINKEDIN_ACCESS_TOKEN;
+      const urn = process.env.LINKEDIN_MEMBER_URN;
+
+      let publishLog = '';
+      try {
+        const result = await this.linkedinService.publishShare(
+          token,
+          urn,
+          pendingItem.linkedin_post_content
+        );
+        publishLog = `\n\nLive Link: https://linkedin.com/feed/update/${result.shareUrn}`;
+      } catch (err) {
+        this.logger.error(`LinkedIn publish failed: ${err.message}`);
+        publishLog = `\n\n(Error: ${err.message})`;
+      }
+
+      await this.queueService.updateQueueStatus(pendingItem.id, 'published');
+      return `✅ Post Approved! "${pendingItem.title}" has been published directly to your connected LinkedIn profile.${publishLog}`;
     }
 
     if (command === '3' || command === 'REJECT') {

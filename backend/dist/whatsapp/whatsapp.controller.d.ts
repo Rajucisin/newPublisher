@@ -13,6 +13,7 @@ export declare class WhatsappController {
     }>;
     broadcast(body: {
         message: string;
+        targetPhones?: string[];
     }): Promise<{
         message: string;
         details: {
