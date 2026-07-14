@@ -292,14 +292,17 @@ export class WhatsappService implements OnModuleInit {
     return this.mockContacts.length;
   }
 
-  /**
-   * Broadcasts a bulk one-shot message to all synced contacts
-   */
   async sendBulkBroadcast(message: string, targetPhones?: string[]): Promise<{ total: number; sent: number; failed: number }> {
     this.logger.log(`Initiating broadcast campaign: "${message}"`);
-    let contactsToMessage = this.mockContacts;
+    let contactsToMessage: { name: string; phoneNumber: string }[] = [];
     if (targetPhones && targetPhones.length > 0) {
-      contactsToMessage = this.mockContacts.filter(c => targetPhones.includes(c.phoneNumber));
+      contactsToMessage = targetPhones.map(phone => {
+        const cleanPhone = phone.trim().replace(/\s+/g, '');
+        const found = this.mockContacts.find(c => c.phoneNumber.replace(/\s+/g, '') === cleanPhone);
+        return found ? found : { name: 'Recipient', phoneNumber: cleanPhone };
+      });
+    } else {
+      contactsToMessage = this.mockContacts;
     }
     const count = contactsToMessage.length;
     
@@ -308,6 +311,8 @@ export class WhatsappService implements OnModuleInit {
     }
 
     const token = process.env.WHAPI_API_TOKEN;
+    let sentCount = 0;
+    let failedCount = 0;
 
     // Send messages one by one
     for (const contact of contactsToMessage) {
@@ -316,16 +321,21 @@ export class WhatsappService implements OnModuleInit {
       if (token && token !== 'your_whapi_api_token_here' && token.trim() !== '') {
         try {
           await this.sendWhapiText(contact.phoneNumber, message);
+          sentCount++;
         } catch (err) {
           this.logger.error(`Failed to dispatch message to ${contact.name} (${contact.phoneNumber}): ${err.message}`);
+          failedCount++;
         }
+      } else {
+        // Fallback mock success if no Whapi token is active
+        sentCount++;
       }
     }
 
     return {
       total: count,
-      sent: count,
-      failed: 0
+      sent: sentCount,
+      failed: failedCount
     };
   }
 
@@ -361,8 +371,7 @@ export class WhatsappService implements OnModuleInit {
       const title = 'Scaling Telemetry Architectures in Enterprise SaaS';
       const postContent = `🚀 Autonomous queue processing and real-time telemetry pipelines represent the core of agentic SaaS systems. By automating code validation, teams reduce deployment latency from hours to seconds.\n\nLearn more: http://autopilot-ai.com/scaling-telemetry #SaaS #AI #Engineering`;
       
-      const token = process.env.LINKEDIN_ACCESS_TOKEN;
-      const urn = process.env.LINKEDIN_MEMBER_URN;
+      const { token, urn } = await this.linkedinService.getActiveCredentials();
 
       let publishLog = '';
       try {
@@ -388,8 +397,7 @@ export class WhatsappService implements OnModuleInit {
         return 'There are no queued posts ready for immediate publication.';
       }
       
-      const token = process.env.LINKEDIN_ACCESS_TOKEN;
-      const urn = process.env.LINKEDIN_MEMBER_URN;
+      const { token, urn } = await this.linkedinService.getActiveCredentials();
 
       let publishLog = '';
       try {
@@ -440,8 +448,7 @@ export class WhatsappService implements OnModuleInit {
     }
 
     if (command === '1' || command === 'APPROVE') {
-      const token = process.env.LINKEDIN_ACCESS_TOKEN;
-      const urn = process.env.LINKEDIN_MEMBER_URN;
+      const { token, urn } = await this.linkedinService.getActiveCredentials();
 
       let publishLog = '';
       try {
