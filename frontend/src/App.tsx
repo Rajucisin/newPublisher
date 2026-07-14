@@ -919,7 +919,7 @@ export default function App() {
             <div className="flex-center" style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', backgroundColor: 'var(--brand-primary)' }}>
               <Bot size={20} color="#fff" />
             </div>
-            <span className="sidebar-logo-text">Autopilot AI</span>
+            <span className="sidebar-logo-text">Cisin Autopilot AI</span>
           </div>
 
           <div className="sidebar-menu">
@@ -1012,7 +1012,7 @@ export default function App() {
         {currentView !== 'landing' && currentView !== 'login' && currentView !== 'register' && (
           <header className="top-header">
             <div className="flex-center gap-md">
-              <h2 style={{ fontSize: '1.25rem' }}>Sandy Autopilot AI Panel</h2>
+              <h2 style={{ fontSize: '1.25rem' }}>Cisin Autopilot AI Panel</h2>
               
               {/* Autopilot active status */}
               {autopilotStatus === 'active' ? (
