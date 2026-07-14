@@ -10,12 +10,13 @@ exports.QueueModule = void 0;
 const common_1 = require("@nestjs/common");
 const queue_service_1 = require("./queue.service");
 const linkedin_module_1 = require("../linkedin/linkedin.module");
+const ai_module_1 = require("../ai/ai.module");
 let QueueModule = class QueueModule {
 };
 exports.QueueModule = QueueModule;
 exports.QueueModule = QueueModule = __decorate([
     (0, common_1.Module)({
-        imports: [linkedin_module_1.LinkedinModule],
+        imports: [linkedin_module_1.LinkedinModule, ai_module_1.AiModule],
         providers: [queue_service_1.QueueService],
         exports: [queue_service_1.QueueService],
     })

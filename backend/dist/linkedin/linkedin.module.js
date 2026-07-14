@@ -9,11 +9,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LinkedinModule = void 0;
 const common_1 = require("@nestjs/common");
 const linkedin_service_1 = require("./linkedin.service");
+const linkedin_controller_1 = require("./linkedin.controller");
 let LinkedinModule = class LinkedinModule {
 };
 exports.LinkedinModule = LinkedinModule;
 exports.LinkedinModule = LinkedinModule = __decorate([
     (0, common_1.Module)({
+        controllers: [linkedin_controller_1.LinkedinController],
         providers: [linkedin_service_1.LinkedinService],
         exports: [linkedin_service_1.LinkedinService],
     })

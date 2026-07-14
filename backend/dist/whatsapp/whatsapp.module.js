@@ -8,18 +8,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WhatsappModule = void 0;
 const common_1 = require("@nestjs/common");
-const queue_service_1 = require("../queue/queue.service");
 const whatsapp_controller_1 = require("./whatsapp.controller");
 const whatsapp_service_1 = require("./whatsapp.service");
 const linkedin_module_1 = require("../linkedin/linkedin.module");
+const queue_module_1 = require("../queue/queue.module");
+const ai_module_1 = require("../ai/ai.module");
 let WhatsappModule = class WhatsappModule {
 };
 exports.WhatsappModule = WhatsappModule;
 exports.WhatsappModule = WhatsappModule = __decorate([
     (0, common_1.Module)({
-        imports: [linkedin_module_1.LinkedinModule],
+        imports: [linkedin_module_1.LinkedinModule, queue_module_1.QueueModule, ai_module_1.AiModule],
         controllers: [whatsapp_controller_1.WhatsappController],
-        providers: [whatsapp_service_1.WhatsappService, queue_service_1.QueueService],
+        providers: [whatsapp_service_1.WhatsappService],
         exports: [whatsapp_service_1.WhatsappService],
     })
 ], WhatsappModule);

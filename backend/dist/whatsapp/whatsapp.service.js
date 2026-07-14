@@ -247,30 +247,44 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
     }
     async sendBulkBroadcast(message, targetPhones) {
         this.logger.log(`Initiating broadcast campaign: "${message}"`);
-        let contactsToMessage = this.mockContacts;
+        let contactsToMessage = [];
         if (targetPhones && targetPhones.length > 0) {
-            contactsToMessage = this.mockContacts.filter(c => targetPhones.includes(c.phoneNumber));
+            contactsToMessage = targetPhones.map(phone => {
+                const cleanPhone = phone.trim().replace(/\s+/g, '');
+                const found = this.mockContacts.find(c => c.phoneNumber.replace(/\s+/g, '') === cleanPhone);
+                return found ? found : { name: 'Recipient', phoneNumber: cleanPhone };
+            });
+        }
+        else {
+            contactsToMessage = this.mockContacts;
         }
         const count = contactsToMessage.length;
         if (count === 0) {
             return { total: 0, sent: 0, failed: 0 };
         }
         const token = process.env.WHAPI_API_TOKEN;
+        let sentCount = 0;
+        let failedCount = 0;
         for (const contact of contactsToMessage) {
             this.logger.log(`Dispatching message to ${contact.name} (${contact.phoneNumber}): "${message}"`);
             if (token && token !== 'your_whapi_api_token_here' && token.trim() !== '') {
                 try {
                     await this.sendWhapiText(contact.phoneNumber, message);
+                    sentCount++;
                 }
                 catch (err) {
                     this.logger.error(`Failed to dispatch message to ${contact.name} (${contact.phoneNumber}): ${err.message}`);
+                    failedCount++;
                 }
+            }
+            else {
+                sentCount++;
             }
         }
         return {
             total: count,
-            sent: count,
-            failed: 0
+            sent: sentCount,
+            failed: failedCount
         };
     }
     async processUserResponse(senderNumber, messageBody) {
@@ -294,8 +308,7 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
         if (command === 'AUTOPILOT RUN' || command === 'GENERATE AND PUBLISH') {
             const title = 'Scaling Telemetry Architectures in Enterprise SaaS';
             const postContent = `🚀 Autonomous queue processing and real-time telemetry pipelines represent the core of agentic SaaS systems. By automating code validation, teams reduce deployment latency from hours to seconds.\n\nLearn more: http://autopilot-ai.com/scaling-telemetry #SaaS #AI #Engineering`;
-            const token = process.env.LINKEDIN_ACCESS_TOKEN;
-            const urn = process.env.LINKEDIN_MEMBER_URN;
+            const { token, urn } = await this.linkedinService.getActiveCredentials();
             let publishLog = '';
             try {
                 const result = await this.linkedinService.publishShare(token, urn, postContent);
@@ -316,8 +329,7 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
             if (!latestApproved) {
                 return 'There are no queued posts ready for immediate publication.';
             }
-            const token = process.env.LINKEDIN_ACCESS_TOKEN;
-            const urn = process.env.LINKEDIN_MEMBER_URN;
+            const { token, urn } = await this.linkedinService.getActiveCredentials();
             let publishLog = '';
             try {
                 const result = await this.linkedinService.publishShare(token, urn, latestApproved.linkedin_post_content);
@@ -355,8 +367,7 @@ let WhatsappService = WhatsappService_1 = class WhatsappService {
             return 'You do not have any pending posts in your Autopilot queue requiring approvals at this moment.';
         }
         if (command === '1' || command === 'APPROVE') {
-            const token = process.env.LINKEDIN_ACCESS_TOKEN;
-            const urn = process.env.LINKEDIN_MEMBER_URN;
+            const { token, urn } = await this.linkedinService.getActiveCredentials();
             let publishLog = '';
             try {
                 const result = await this.linkedinService.publishShare(token, urn, pendingItem.linkedin_post_content);

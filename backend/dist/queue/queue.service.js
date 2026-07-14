@@ -12,12 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.QueueService = void 0;
 const common_1 = require("@nestjs/common");
 const linkedin_service_1 = require("../linkedin/linkedin.service");
+const ai_service_1 = require("../ai/ai.service");
 const sqlite3 = require("sqlite3");
 const path = require("path");
 const https = require("https");
 let QueueService = class QueueService {
-    constructor(linkedinService) {
+    constructor(linkedinService, aiService) {
         this.linkedinService = linkedinService;
+        this.aiService = aiService;
         this.dbPath = path.resolve(process.cwd(), '../database.sqlite');
     }
     onModuleInit() {
@@ -29,6 +31,7 @@ let QueueService = class QueueService {
                 console.log('[QueueService] Database connected successfully.');
                 this.verifySchema();
                 setInterval(() => this.processScheduledPublishing(), 10000);
+                setInterval(() => this.checkDailyPostGeneration(), 60000);
             }
         });
     }
@@ -82,8 +85,7 @@ let QueueService = class QueueService {
                 return;
             for (const item of rows) {
                 console.log(`[QueueService] Found scheduled post ready to publish: "${item.title}" (Queue ID: ${item.queue_id})`);
-                const token = process.env.LINKEDIN_ACCESS_TOKEN;
-                const urn = process.env.LINKEDIN_MEMBER_URN;
+                const { token, urn } = await this.linkedinService.getActiveCredentials();
                 let publishLog = '';
                 let success = true;
                 let shareUrn = '';
@@ -252,10 +254,80 @@ let QueueService = class QueueService {
             });
         });
     }
+    async checkDailyPostGeneration() {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const targetHour = parseInt(process.env.DAILY_POST_HOUR || '9', 10);
+        const targetMinute = 0;
+        if (currentHour === targetHour && currentMinute === targetMinute) {
+            const checkQuery = `
+        SELECT createdAt FROM publishing_queue 
+        ORDER BY createdAt DESC LIMIT 1;
+      `;
+            this.db.get(checkQuery, [], async (err, row) => {
+                if (err) {
+                    console.error('[QueueService] Error checking last post creation:', err.message);
+                    return;
+                }
+                let shouldGenerate = true;
+                if (row) {
+                    const lastPostTime = new Date(row.createdAt + ' UTC').getTime();
+                    const hoursSinceLastPost = (Date.now() - lastPostTime) / (1000 * 60 * 60);
+                    if (hoursSinceLastPost < 20) {
+                        shouldGenerate = false;
+                    }
+                }
+                if (shouldGenerate) {
+                    console.log('[QueueService] Triggering scheduled daily post generation...');
+                    const usersQuery = `SELECT id FROM users;`;
+                    this.db.all(usersQuery, [], async (userErr, userRows) => {
+                        if (userErr || !userRows)
+                            return;
+                        for (const u of userRows) {
+                            await this.generateDailyPostDraft(u.id);
+                        }
+                    });
+                }
+            });
+        }
+    }
+    async generateDailyPostDraft(userId) {
+        try {
+            const result = await this.aiService.generateBlogAndLinkedInPost({
+                category: 'Enterprise SaaS & AI',
+                sourceType: 'general',
+                tone: 'professional',
+                length: 'medium',
+            });
+            const crypto = require('crypto');
+            const postId = crypto.randomUUID();
+            const queueId = crypto.randomUUID();
+            return new Promise((resolve, reject) => {
+                this.db.serialize(() => {
+                    this.db.run('INSERT INTO blog_posts (id, user_id, title, linkedin_post_content) VALUES (?, ?, ?, ?);', [postId, userId, result.title, result.linkedinPostContent]);
+                    this.db.run('INSERT INTO publishing_queue (id, post_id, user_id, status, whatsapp_notification_sent) VALUES (?, ?, ?, ?, 0);', [queueId, postId, userId, 'pending_approval'], (err) => {
+                        if (err) {
+                            console.error('[QueueService] Failed to insert new daily draft:', err.message);
+                            reject(err);
+                        }
+                        else {
+                            console.log(`[QueueService] Successfully created daily draft for user ${userId}: "${result.title}"`);
+                            resolve();
+                        }
+                    });
+                });
+            });
+        }
+        catch (err) {
+            console.error('[QueueService] Failed to generate daily post draft:', err.message);
+        }
+    }
 };
 exports.QueueService = QueueService;
 exports.QueueService = QueueService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [linkedin_service_1.LinkedinService])
+    __metadata("design:paramtypes", [linkedin_service_1.LinkedinService,
+        ai_service_1.AiService])
 ], QueueService);
 //# sourceMappingURL=queue.service.js.map
