@@ -1102,7 +1102,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid-3 mt-lg" style={{ paddingTop: '4rem' }}>
+              <div className="grid-3 mt-0">
                 <div className="card">
                   <div className="stat-icon-wrapper" style={{ backgroundColor: 'var(--brand-accent-glow)', color: 'var(--brand-accent)', marginBottom: '1rem' }}>
                     <Bot size={24} />
@@ -1138,7 +1138,7 @@ export default function App() {
               <div className="card" style={{ width: '450px', padding: '2.5rem' }}>
                 <div className="flex-center gap-sm mb-lg" style={{ flexDirection: 'column' }}>
                   <Bot size={36} color="var(--brand-primary)" />
-                  <h2 style={{ fontSize: '1.5rem', marginTop: '0.5rem' }}>LinkedIn Autopilot Login</h2>
+                  <h2 style={{ fontSize: '1.5rem', marginTop: '0.5rem' }}>Cisin Autopilot Login</h2>
                   <p>Access your monitoring dashboard workspace</p>
                 </div>
 
