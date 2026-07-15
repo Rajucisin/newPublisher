@@ -206,7 +206,7 @@ export default function App() {
   const [whatsappChat, setWhatsappChat] = useState<{ sender: 'bot' | 'user'; text: string; time: string }[]>([
     { 
       sender: 'bot', 
-      text: '🤖 Welcome to LinkedIn Autopilot AI!\n\nI will manage your strategy and post updates. Notifications arrive here for approvals. You can also send standard commands directly to control settings.',
+      text: '🤖 Welcome to Cisin Autopilot AI!\n\nI will manage your strategy and post updates. Notifications arrive here for approvals. You can also send standard commands directly to control settings.',
       time: '12:00 PM'
     }
   ]);
@@ -1074,7 +1074,7 @@ export default function App() {
               <div className="flex-between" style={{ paddingBottom: '3rem' }}>
                 <div className="flex-center gap-sm">
                   <Bot size={28} color="var(--brand-primary)" />
-                  <h1 style={{ fontSize: '1.75rem', fontFamily: 'var(--font-display)' }}>LinkedIn Autopilot AI</h1>
+                  <h1 style={{ fontSize: '1.75rem', fontFamily: 'var(--font-display)' }}>Cisin Autopilot AI</h1>
                 </div>
                 <div className="flex-center gap-md">
                   <button className="btn btn-outline" onClick={() => navigateTo('login')}>Sign In</button>
