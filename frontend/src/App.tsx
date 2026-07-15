@@ -1012,7 +1012,7 @@ export default function App() {
         {currentView !== 'landing' && currentView !== 'login' && currentView !== 'register' && (
           <header className="top-header">
             <div className="flex-center gap-md">
-              <h2 style={{ fontSize: '1.25rem' }}>Cisin Autopilot AI Panel</h2>
+              <h2 style={{ fontSize: '1.25rem' }}>Cisin  Autopilot AI Panel</h2>
               
               {/* Autopilot active status */}
               {autopilotStatus === 'active' ? (
