@@ -1082,7 +1082,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={{ textAlign: 'center', padding: '6rem 0', maxWidth: '850px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', padding: '6rem 0 4rem', maxWidth: '850px', margin: '0 auto' }}>
                 <span className="badge badge-info" style={{ marginBottom: '1rem', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
                   🤖 Fully Autonomous LinkedIn Employee
                 </span>
